@@ -1,11 +1,10 @@
-
 import telebot
 import requests
-
-BOT_TOKEN = '6551624642:AAEx7p4eTV8RFkPrqOStR0JbMQ8fvXTzEGo'
-WEATHER_API = 'https://api.openweathermap.org/data/2.5/9d797cbb0255e00be40ea9eccfc36d8b&q={}'
+from dotenv import load_dotenv
+import os
+load_dotenv()
+BOT_TOKEN =os.environ.get("BOT_TOKEN")
 bot = telebot.TeleBot(BOT_TOKEN)
-
 
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
@@ -24,16 +23,8 @@ def get_weather(message):
     data = get_full_data(city)
     temp = round(data.get("main", {}).get('temp', 0) - 273.15)
     speed = data.get("wind",{}).get('speed',0)
-    weather_data = data.get("weather", [])
-    if weather_data:
-       main_weather = weather_data[0].get('main', 0)
-    if main_weather == 'Clear':
-        print("Bulutli bo'lamaydi")
-    elif main_weather == 'Clouds':
-        print("Bulutli bo'ladi")
-    else:
-        print("Noma'lum havo holati")
-    bot.send_message(message.chat.id, f"hozirda {city}da havo {temp} bo'lishi kutulmoqda!\nShamol {speed}m/s tezlikka esadi.\nOsmonda {main_weather} kutilmoqda")
+    cloud = data.get("wind",{}).get('speed')
+    bot.send_message(message.chat.id, f"hozirda {city}da havo {temp} bo'lishi kutulmoqda!\nShamol {speed}m/s tezlikka esadi.\nOsmonda {cloud} kutilmoqda")
 
 # @bot.message_handler(func = lambda msg: True)
 # def reply_msg(message):
@@ -41,7 +32,7 @@ def get_weather(message):
 #     # bot.reply_to(message, str(message.chat.id))
 
 def get_full_data(city):
-    url = 'https://api.openweathermap.org/data/2.5/weather?appid=9d797cbb0255e00be40ea9eccfc36d8b&q={}'.format(city)
+    url = 'https://api.openweathermap.org/data/2.5/weather?appid=78a2e76d709d1222a5487dd5ad41b74b={}'.format(city)
     response = requests.get(url)
     return response.json()
 
