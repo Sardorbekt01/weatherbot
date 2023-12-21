@@ -1,40 +1,86 @@
 import telebot
 import requests
+import random
+from telebot import types
 from dotenv import load_dotenv
 import os
 load_dotenv()
 BOT_TOKEN =os.environ.get("BOT_TOKEN")
+WEATHER_API = os.environ.get("WEATHER_API")
 bot = telebot.TeleBot(BOT_TOKEN)
+bot1 = os.environ.get("WEATER_API")
+questions = [
+    {"question": "2 + 2 =", "options": ["3", "4", "5"], "correct_answer": "4"},
+    {"question": "8 * 3 =", "options": ["21", "24", "28"], "correct_answer": "24"},
+    {"question": "15 - 7 =", "options": ["6", "8", "10"], "correct_answer": "8"},
+    {"question": "3 * 7 =", "options": ["21", "24", "26"], "correct_answer": "21"},
+    {"question": "8 * 6 =", "options": ["44", "48", "47"], "correct_answer": "48"},
+    {"question": "9 * 5 =", "options": ["45", "40", "43"], "correct_answer": "21"},
+    {"question": "6 * 7 =", "options": ["46", "43", "42"], "correct_answer": "21"},
+    {"question": "4 * 6 =", "options": ["21", "24", "26"], "correct_answer": "24"},
+    {"question": "7 * 7 =", "options": ["48", "49", "47"], "correct_answer": "21"},
+    {"question": "8 * 4 =", "options": ["38", "34", "32"], "correct_answer": "32"},
+]
 
-@bot.message_handler(commands=['start'])
+user_scores = {}
+
 def send_welcome(message):
-    user = message.from_user
-    bot.reply_to(message,
-                 f"Assalomu, {user.first_name}! botimizga xush kelibsiz 😊.\nBu botdan siz ob-havo malumotlarini bilib olishingiz mumkin.\n /help buyrug'ini bering.")
+    markup = types.ReplyKeyboardMarkup(row_width=1, one_time_keyboard=True)
+    itembtn1 = types.KeyboardButton('/quiz')
+    markup.add(itembtn1)
+    bot.reply_to(message, "Assalomu alaykum! Matematika botiga xush kelibsiz. Savollar uchun /quiz buyrug'ini kiriting.", reply_markup=markup)
 
-# /help buyrug'iga javob berish
-@bot.message_handler(commands=['help'])
-def send_help(message):
-    bot.reply_to(message, "Men yordam qilaman!")
+def send_question(message):
+    chat_id = message.chat.id
 
-@bot.message_handler(commands=['weather'])
-def get_weather(message):
-    city = message.text[9:]
-    data = get_full_data(city)
-    temp = round(data.get("main", {}).get('temp', 0) - 273.15)
-    speed = data.get("wind",{}).get('speed',0)
-    cloud = data.get("wind",{}).get('speed')
-    bot.send_message(message.chat.id, f"hozirda {city}da havo {temp} bo'lishi kutulmoqda!\nShamol {speed}m/s tezlikka esadi.\nOsmonda {cloud} kutilmoqda")
+    if chat_id not in user_scores or (user_scores[chat_id]["correct"] + user_scores[chat_id]["incorrect"]) >= 10:
+        user_scores[chat_id] = {"correct": 0, "incorrect": 0, "asked_questions": []}
 
-# @bot.message_handler(func = lambda msg: True)
-# def reply_msg(message):
-#     bot.send_message(message.chat.id, message.text)
-#     # bot.reply_to(message, str(message.chat.id))
+    available_questions = [q for q in questions if q not in user_scores[chat_id]["asked_questions"]]
+    if not available_questions:
+        user_scores[chat_id]["asked_questions"] = []
+        available_questions = questions
 
-def get_full_data(city):
-    url = 'https://api.openweathermap.org/data/2.5/weather?appid=78a2e76d709d1222a5487dd5ad41b74b={}'.format(city)
-    response = requests.get(url)
-    return response.json()
+    question = random.choice(available_questions)
+    user_scores[chat_id]["current_question"] = question
+    user_scores[chat_id]["asked_questions"].append(question)
 
+    markup = types.ReplyKeyboardMarkup(one_time_keyboard=True)
+    for option in question["options"]:
+        markup.add(types.KeyboardButton(option))
 
-bot.infinity_polling()
+    bot.send_message(chat_id, f"{question['question']}", reply_markup=markup)
+
+def check_answer(message):
+    chat_id = message.chat.id
+    user_answer = message.text.strip()
+
+    if chat_id in user_scores:
+        question = user_scores[chat_id]["current_question"]
+        correct_answer = question["correct_answer"]
+
+        if user_answer == correct_answer:
+            user_scores[chat_id]["correct"] += 1
+        else:
+            user_scores[chat_id]["incorrect"] += 1
+
+        if (user_scores[chat_id]["correct"] + user_scores[chat_id]["incorrect"]) == 10:
+            bot.send_message(chat_id, f"Siz 10 savoldan {user_scores[chat_id]['correct']} ta to'g'ri, {user_scores[chat_id]['incorrect']} ta noto'g'ri javob berdingiz.")
+            send_welcome(message)
+        elif (user_scores[chat_id]["correct"] + user_scores[chat_id]["incorrect"]) < 10:
+            send_question(message)
+
+@bot.message_handler(commands=['start', 'help'])
+def handle_start(message):
+    send_welcome(message)
+
+@bot.message_handler(commands=['quiz'])
+def handle_quiz(message):
+    send_question(message)
+
+@bot.message_handler(func=lambda message: True)
+def handle_answer(message):
+    check_answer(message)
+
+if __name__ == "__main__":
+    bot.polling(none_stop=True)
